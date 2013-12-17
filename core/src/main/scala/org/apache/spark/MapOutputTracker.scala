@@ -98,6 +98,11 @@ private[spark] class MapOutputTracker extends Logging {
     }
   }
 
+  def getMapOutputs(shuffleId: Int) = {
+    mapStatuses.get(shuffleId).orNull
+  }
+
+
   def registerMapOutput(shuffleId: Int, mapId: Int, status: MapStatus) {
     var array = mapStatuses(shuffleId)
     array.synchronized {

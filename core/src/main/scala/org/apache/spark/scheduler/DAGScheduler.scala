@@ -28,7 +28,7 @@ import org.apache.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.partial.{ApproximateActionListener, ApproximateEvaluator, PartialResult}
-import org.apache.spark.storage.{BlockId, BlockManager, BlockManagerMaster, RDDBlockId}
+import org.apache.spark.storage.{BlockId, BlockManager, BlockManagerMaster, RDDBlockId, BlockManagerId}
 import org.apache.spark.util.{MetadataCleaner, MetadataCleanerType, TimeStampedHashMap}
 
 /**
@@ -126,6 +126,8 @@ class DAGScheduler(
 
   // Contains the locations that each RDD's partitions are cached on
   private val cacheLocs = new HashMap[Int, Array[Seq[TaskLocation]]]
+
+  private val reducerLocs = new HashMap[Int, Array[Seq[TaskLocation]]]
 
   // For tracking failed nodes, we use the MapOutputTracker's epoch number, which is sent with
   // every task. When we detect a node failing, we note the current epoch number and failed
@@ -894,7 +896,29 @@ class DAGScheduler(
           if (locs != Nil)
             return locs
         }
-      case _ =>
+      case s: ShuffleDependency[_, _] => {
+        if (!reducerLocs.contains(rdd.id)) {
+          // First get the map stage
+          val mapOutputsForShuffle = mapOutputTracker.getMapOutputs(s.shuffleId)
+
+          // number of reducers is equal to num partitions of rdd being computed
+          val reducerPrefLocs = new Array[Seq[TaskLocation]](rdd.partitions.size)
+
+          val reduceOutputSizes = new HashMap[Int, Seq[(BlockManagerId, Long)]]
+          (0 until rdd.partitions.size).foreach { part =>
+            val reducerLocs = mapOutputsForShuffle.map {
+              status =>
+                (status.location, MapOutputTracker.decompressSize(status.compressedSizes(part)))
+            }
+            // Take first two ?
+            val primaryLocs = reducerLocs.sortWith(_._2 > _._2).take(2)
+            reducerPrefLocs(part) = primaryLocs.map(x => TaskLocation(x._1.host))
+          }
+
+          reducerLocs(rdd.id) = reducerPrefLocs
+        }
+        reducerLocs(rdd.id)
+      }
     })
     Nil
   }
