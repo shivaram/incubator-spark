@@ -119,7 +119,14 @@ object BlockFetcherIterator {
       bytesInFlight += req.size
       val sizeMap = req.blocks.toMap  // so we can look up the size of each blockID
       val fetchStart = System.currentTimeMillis()
-      val future = connectionManager.sendMessageReliably(cmId, blockMessageArray.toBufferMessage)
+      //val future = connectionManager.sendMessageReliably(cmId, blockMessageArray.toBufferMessage)
+      val bufferMessageToSend = blockMessageArray.toBufferMessage
+      logInfo("Sending request for %d blocks (%s) from %s with id %d".format(
+        req.blocks.size, Utils.bytesToString(req.size), req.address.host,
+        bufferMessageToSend.id))
+      logInfo("Blocks in message %d are %s".format(bufferMessageToSend.id,
+        req.blocks.map { case (blockId, size) => blockId }.mkString(",")))
+      val future = connectionManager.sendMessageReliably(cmId, bufferMessageToSend)
       future.onSuccess {
         case Some(message) => {
           val fetchDone = System.currentTimeMillis()
@@ -137,6 +144,9 @@ object BlockFetcherIterator {
               () => dataDeserialize(blockId, blockMessage.getData, serializer)))
             _remoteBytesRead += networkSize
             logDebug("Got remote block " + blockId + " after " + Utils.getUsedTimeMs(startTime))
+            logInfo("Got remote block " + blockId + " size " + sizeMap(blockId) + " after " +
+              Utils.getUsedTimeMs(startTime))
+
           }
         }
         case None => {

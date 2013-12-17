@@ -213,8 +213,9 @@ class SendingConnection(val address: InetSocketAddress, selector_ : Selector,
           } else {
             /*logInfo("Finished sending [" + message + "] to [" + getRemoteConnectionManagerId() + "]")*/
             message.finishTime = System.currentTimeMillis
-            logDebug("Finished sending [" + message + "] to [" + getRemoteConnectionManagerId() +
+            logInfo("Finished sending [" + message + "] to [" + getRemoteConnectionManagerId() +
               "] in "  + message.timeTaken )
+
           }
         }
       }
@@ -242,7 +243,7 @@ class SendingConnection(val address: InetSocketAddress, selector_ : Selector,
             return chunk
           } else {
             message.finishTime = System.currentTimeMillis
-            logDebug("Finished sending [" + message + "] to [" + getRemoteConnectionManagerId() +
+            logInfo("Finished sending [" + message + "] to [" + getRemoteConnectionManagerId() +
               "] in "  + message.timeTaken )
           }
         }
